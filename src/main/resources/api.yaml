@@ -1,0 +1,107 @@
+
+
+openapi: 3.0.1
+info:
+  title: account and credit orchestrator
+  description: API that allows us to coordinate calls to services
+  version: 1.0.0
+
+paths:
+  /orchestrator/accounts:
+    post:
+      summary: Crear una nueva tarjeta de crédito
+      operationId: createCreditCard
+      tags:
+        - credicard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountSagaRequest'
+
+      responses:
+        '200':
+          description: Process started successfully
+        '400':
+          description: Error in input data
+        '500':
+          description: Internal Server Error
+
+components:
+  schemas:
+    AccountRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        dni:
+          type: string
+        customerType:
+          type: string
+          enum:
+            - PERSONAL
+            - EMPRESARIAL
+        accountType:
+          type: string
+          enum:
+            - AHORRO
+            - CORRIENTE
+            - PLAZO_FIJO
+        clientType:
+          type: string
+          enum:
+            - VIP
+            - PYME
+        balance:
+          type: number
+          format: double
+        monthlyLimit:
+          type: integer
+          description: Only applicable for CORRIENTE accounts
+        lastDepositDate:
+          type: string
+          format: date
+          description: Only applicable for PLAZO_FIJO accounts
+        holders:
+          type: array
+          items:
+            type: string
+        limitTransaction:
+          type: number
+          format: double
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        name:
+          type: string
+        lastname:
+          type: string
+        email:
+          type: string
+        dni:
+          type: string
+        company:
+          type: object
+          properties:
+            ruc:
+              type: string
+            socialreason:
+              type: string
+    CreateAccountSagaRequest:
+      type: object
+      properties:
+        customer:
+          $ref: '#/components/schemas/Customer'
+        account:
+          $ref: '#/components/schemas/AccountRequest'
+
+
+
