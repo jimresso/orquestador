@@ -1,5 +1,7 @@
 package com.orchestrator.saga.saga.service.Impl;
 
+import com.orchestrator.saga.saga.exception.BusinessException;
+import com.orchestrator.saga.saga.exception.RemoteServiceUnavailableException;
 import com.orchestrator.saga.saga.model.CheckDebtorsRequest;
 import com.orchestrator.saga.saga.service.AcountSagaService;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +37,7 @@ public class AcountSagaServiceImpl implements AcountSagaService {
                 .flatMap(hasDebt -> {
                     if (Boolean.TRUE.equals(hasDebt)) {
                         logger.warn("Customer with DNI {} has debts. Aborting Saga flow.", dni);
-                        return Mono.just(ResponseEntity.badRequest().build());
+                        return Mono.error(new BusinessException("Customer with DNI " + dni + " has debts"));
                     }
                     return createCustomer(c.getCustomer())
                             .doOnSuccess(resp -> logger.info("Customer created. Proceeding to create account."))
@@ -44,12 +46,16 @@ public class AcountSagaServiceImpl implements AcountSagaService {
                                         logger.info("Account successfully created for customer {}", c.getCustomer().getDni());
                                         return ResponseEntity.ok().<Void>build();
                                     }))
-                                    .onErrorResume(ex -> {
-                                        logger.error("Error during account creation step: {}", ex.getMessage(), ex);
-                                        return deleteCustomerByCustomerId(c.getCustomer().getCustomerId())
-                                                .thenReturn(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).<Void>build());
-                                    })
-                            );
+                                    .onErrorResume(ex -> deleteCustomerByCustomerId(c.getCustomer().getCustomerId())
+                                            .then(Mono.error(new RemoteServiceUnavailableException("Account service failed during creation", ex))))
+                            )
+                            .onErrorResume(ex -> {
+                                if (ex instanceof BusinessException || ex instanceof RemoteServiceUnavailableException) {
+                                    return Mono.error(ex);
+                                }
+                                logger.error("Unexpected error in createAccount saga: {}", ex.getMessage(), ex);
+                                return Mono.error(new RuntimeException("Unexpected error during account creation saga", ex));
+                            });
                 });
     }
     private Mono<List<AccountRequest>> findAccountsByDni(String dni) {
