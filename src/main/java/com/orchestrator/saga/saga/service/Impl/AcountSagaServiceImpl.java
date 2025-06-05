@@ -43,18 +43,22 @@ public class AcountSagaServiceImpl implements AcountSagaService {
                             .doOnSuccess(resp -> logger.info("Customer created. Proceeding to create account."))
                             .then(createAccount(c.getAccount())
                                     .then(Mono.fromCallable(() -> {
-                                        logger.info("Account successfully created for customer {}", c.getCustomer().getDni());
+                                        logger.info("Account successfully created for customer {}",
+                                                c.getCustomer().getDni());
                                         return ResponseEntity.ok().<Void>build();
                                     }))
                                     .onErrorResume(ex -> deleteCustomerByCustomerId(c.getCustomer().getCustomerId())
-                                            .then(Mono.error(new RemoteServiceUnavailableException("Account service failed during creation", ex))))
+                                            .then(Mono.error(new RemoteServiceUnavailableException(
+                                                    "Account service failed during creation", ex))))
                             )
                             .onErrorResume(ex -> {
-                                if (ex instanceof BusinessException || ex instanceof RemoteServiceUnavailableException) {
+                                if (ex instanceof BusinessException ||
+                                        ex instanceof RemoteServiceUnavailableException) {
                                     return Mono.error(ex);
                                 }
                                 logger.error("Unexpected error in createAccount saga: {}", ex.getMessage(), ex);
-                                return Mono.error(new RuntimeException("Unexpected error during account creation saga", ex));
+                                return Mono.error(new RuntimeException(
+                                        "Unexpected error during account creation saga", ex));
                             });
                 });
     }
